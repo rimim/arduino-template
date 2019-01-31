@@ -1,5 +1,5 @@
 PWD=$(CURDIR)
-HOSTNAME := $(shell hostname)
+HOSTNAME := $(shell hostname -s)
 ifeq ("$(TARGET)", "Mega2560")
 ARDUINO_FQBN:=mega:cpu=atmega2560
 UPLOAD_DEVICE:=atmega2560
@@ -59,6 +59,15 @@ ifneq ("$(HOSTPROPS)", "")
 include $(HOSTPROPS)
 endif
 
+ifneq ("$(UPLOAD_HOSTS)", "")
+ifneq ($(filter $(HOSTNAME),$(UPLOAD_HOSTS)),)
+$(warning "Uploading on $(HOSTNAME)") 
+else
+$(warning "Sketch upload disabled. Uploading only allowed on: $(UPLOAD_HOSTS)")
+AVRDUDE = echo AVRDUDE_DISABLED
+endif
+endif
+
 all: build
 
 github_clone:
@@ -80,7 +89,7 @@ github_pull:
 build: github_clone .build/$(SKETCH).ino.hex
 
 upload:
-	@$(AVRDUDE) -p$(UPLOAD_DEVICE) -carduino $(AVRDUDE_OPTS) -P$(PORT) -b$(BAUDRATE) -D -U flash:w:.build/$(SKETCH).ino.hex:i
+	$(AVRDUDE) -p$(UPLOAD_DEVICE) -carduino $(AVRDUDE_OPTS) -P$(PORT) -b$(BAUDRATE) -D -U flash:w:.build/$(SKETCH).ino.hex:i
 
 clean:
 	@rm -rf $(PWD)/.build
