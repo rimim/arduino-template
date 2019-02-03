@@ -1,5 +1,5 @@
 PWD=$(CURDIR)
-HOSTNAME := $(shell hostname)
+HOSTNAME := $(shell hostname -s)
 ifeq ("$(TARGET)", "Mega2560")
 ARDUINO_FQBN:=mega:cpu=atmega2560
 UPLOAD_DEVICE:=atmega2560
@@ -30,6 +30,7 @@ ARDUINO_HARDWARE=$(ARDUINO_ROOT)/hardware
 ARDUINO_TOOLS=$(ARDUINO_ROOT)/hardware/tools
 BUILDER_TOOLS=$(ARDUINO_ROOT)/tools-builder
 AVRDUDE=$(ARDUINO_TOOLS)/avr/bin/avrdude -C $(ARDUINO_TOOLS)/avr/etc/avrdude.conf
+AVRSIM=simavr
 SYSTEM_LIBRARIES=$(ARDUINO_ROOT)/libraries
 PROJECT_LIBRARIES=../libraries
 GITHUB_LIBPATH=$(PROJECT_LIBRARIES)/github.com
@@ -59,6 +60,13 @@ ifneq ("$(HOSTPROPS)", "")
 include $(HOSTPROPS)
 endif
 
+AVRDUDECMD=$(AVRDUDE)
+ifneq ("$(UPLOAD_HOSTS)", "")
+ifeq ($(filter $(HOSTNAME),$(UPLOAD_HOSTS)),)
+AVRDUDECMD = @echo "\nSketch upload disabled. Uploading only allowed on: $(UPLOAD_HOSTS)\n\n   $(AVRDUDE)"
+endif
+endif
+
 all: build
 
 github_clone:
@@ -73,14 +81,35 @@ github_pull:
 		cd $(GITHUB_LIBPATH)/$$dir && git pull ; \
 	done
 
-.build/$(SKETCH).ino.hex: $(SKETCH).ino
+%.ino.cpp.o : %.ino.cpp
 	@mkdir -p .build
 	@$(BUILDER_CMD) -build-path $(PWD)/.build $(SKETCH).ino
 
-build: github_clone .build/$(SKETCH).ino.hex
+-include $(PWD)/.build/sketch/$(SKETCH).ino.cpp.d
+
+.build/$(SKETCH).ino.hex: $(SKETCH).ino $(PWD)/.build/sketch/$(SKETCH).ino.cpp.o
+	@mkdir -p .build
+	@$(BUILDER_CMD) -build-path $(PWD)/.build $(SKETCH).ino
+
+$(PWD)/.build/sketch/$(SKETCH).ino.cpp.d:
+	@mkdir -p .build
+	@$(BUILDER_CMD) -build-path $(PWD)/.build $(SKETCH).ino
+
+build: github_clone $(PWD)/.build/sketch/$(SKETCH).ino.cpp.d .build/$(SKETCH).ino.hex
 
 upload:
-	@$(AVRDUDE) -p$(UPLOAD_DEVICE) -carduino $(AVRDUDE_OPTS) -P$(PORT) -b$(BAUDRATE) -D -U flash:w:.build/$(SKETCH).ino.hex:i
+	@echo "\nUploading on $(HOSTNAME)"
+	$(AVRDUDECMD) -p$(UPLOAD_DEVICE) -carduino $(AVRDUDE_OPTS) -P$(PORT) -b$(BAUDRATE) -D -U flash:w:.build/$(SKETCH).ino.hex:i
+	@echo
+
+run:
+	$(AVRSIM) -m $(UPLOAD_DEVICE) .build/$(SKETCH).ino.elf
+
+debug:
+	@echo Start avr-gdb process:
+	@echo $(ARDUINO_TOOLS)/avr/bin/avr-gdb $(PWD)/.build/$(SKETCH).ino.elf
+	@echo target remote localhost:1234
+	$(AVRSIM) -m $(UPLOAD_DEVICE) -g .build/$(SKETCH).ino.elf
 
 clean:
 	@rm -rf $(PWD)/.build
