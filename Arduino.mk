@@ -106,10 +106,10 @@ run:
 	$(AVRSIM) -m $(UPLOAD_DEVICE) .build/$(SKETCH).ino.elf
 
 debug:
-	@echo Start avr-gdb process:
-	@echo $(ARDUINO_TOOLS)/avr/bin/avr-gdb $(PWD)/.build/$(SKETCH).ino.elf
-	@echo target remote localhost:1234
-	$(AVRSIM) -m $(UPLOAD_DEVICE) -g .build/$(SKETCH).ino.elf
+	@echo "\nStart avr-gdb process:\n"
+	@echo $(ARDUINO_TOOLS)/avr/bin/avr-gdb $(PWD)/.build/$(SKETCH).ino.elf -ex '"target remote localhost:1234"'
+	@echo
+	@$(AVRSIM) -m $(UPLOAD_DEVICE) -g .build/$(SKETCH).ino.elf
 
 clean:
 	@rm -rf $(PWD)/.build
