@@ -85,7 +85,6 @@ github_pull:
 	done
 
 .build/$(SKETCH).ino.hex: $(SKETCH).ino $(DEPENDS)
-	@echo Rebuild 1
 	@mkdir -p .build
 	@$(BUILDER_CMD) -build-path $(PWD)/.build $(SKETCH).ino
 
